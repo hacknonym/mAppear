@@ -83,7 +83,7 @@ The program uses two ways of compilation.
 
 ## Tools Overview
 ![menu](https://user-images.githubusercontent.com/55319869/92118119-54e12380-edf6-11ea-8f49-5b1b973fc7d7.png)
-![anonymity](https://user-images.githubusercontent.com/55319869/92118112-53aff680-edf6-11ea-99ad-33d6e7a97c16.png)
+![anonymity](https://user-images.githubusercontent.com/55319869/92163200-8fb57c80-ee33-11ea-9b96-81b770ed375f.png)
 ![forwarding](https://user-images.githubusercontent.com/55319869/92118117-54e12380-edf6-11ea-90be-84f4ac4d10fc.png)
 
 ## License
